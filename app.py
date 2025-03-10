@@ -13,7 +13,7 @@ screen_w, screen_h = pyautogui.size()
 
 # Smoothing variables
 prev_x, prev_y = 0, 0
-alpha = 0.6  # Smoothing factor (0 = no smoothing, 1 = instant movement)
+alpha = 0.6  # Smoothing factor
 
 # Function to find an active camera
 def find_active_camera():
@@ -21,7 +21,7 @@ def find_active_camera():
         cap = cv2.VideoCapture(i)
         if cap.isOpened():
             print(f"✅ Using camera at index {i}")
-            return cap  # Return the first active camera
+            return cap
         cap.release()
     print("❌ No active camera found!")
     return None
@@ -30,7 +30,7 @@ def find_active_camera():
 cap = find_active_camera()
 
 if cap is None:
-    exit()  # Stop execution if no camera is found
+    exit()
 
 while cap.isOpened():
     success, img = cap.read()
@@ -63,39 +63,39 @@ while cap.isOpened():
             # Move the cursor smoothly
             pyautogui.moveTo(screen_x, screen_y)
 
-            # Get Middle Finger Tip (for scrolling)
-            middle_tip = hand_landmarks.landmark[12]
-            mid_x, mid_y = int(middle_tip.x * w), int(middle_tip.y * h)
-
-            # Scroll based on hand movement
-            if abs(y - mid_y) > 50:  # Adjust sensitivity
-                if y < mid_y:  # Hand moving up
-                    pyautogui.scroll(5)
-                else:  # Hand moving down
-                    pyautogui.scroll(-5)
-
-            # Click Detection
+            # Get Finger Tips
             thumb_tip = hand_landmarks.landmark[4]
             index_tip = hand_landmarks.landmark[8]
+            middle_tip = hand_landmarks.landmark[12]
+            ring_tip = hand_landmarks.landmark[16]
+            little_tip = hand_landmarks.landmark[20]
 
             # Convert finger positions to screen space
             thumb_x, thumb_y = int(thumb_tip.x * w), int(thumb_tip.y * h)
             index_x, index_y = int(index_tip.x * w), int(index_tip.y * h)
-
-            # Distance between thumb and index (for left click)
-            left_click_distance = np.linalg.norm(np.array([index_x, index_y]) - np.array([thumb_x, thumb_y]))
-
-            # Get Middle Finger Tip (for right click)
             middle_x, middle_y = int(middle_tip.x * w), int(middle_tip.y * h)
+            little_x, little_y = int(little_tip.x * w), int(little_tip.y * h)
 
-            # Distance between thumb and middle (for right click)
-            right_click_distance = np.linalg.norm(np.array([middle_x, middle_y]) - np.array([thumb_x, thumb_y]))
+            # Compute distances
+            thumb_little_dist = np.linalg.norm(np.array([thumb_x, thumb_y]) - np.array([little_x, little_y]))
+            thumb_index_dist = np.linalg.norm(np.array([thumb_x, thumb_y]) - np.array([index_x, index_y]))
+            thumb_middle_dist = np.linalg.norm(np.array([thumb_x, thumb_y]) - np.array([middle_x, middle_y]))
 
-            if left_click_distance < 30:  # If thumb and index are close together
-                pyautogui.click()  # Left click
+            # Scroll Down (Thumb + Little Finger Pinch)
+            if thumb_little_dist < 30:
+                pyautogui.scroll(-5)  # Scroll down
 
-            if right_click_distance < 30:  # If thumb and middle are close together
-                pyautogui.rightClick()  # Right click
+            # Scroll Up (Thumb + Middle + Index Pinch)
+            if thumb_index_dist < 30 and thumb_middle_dist < 30:
+                pyautogui.scroll(5)  # Scroll up
+
+            # Left Click (Thumb + Index Pinch)
+            if thumb_index_dist < 30 and thumb_middle_dist >= 30:
+                pyautogui.click()
+
+            # Right Click (Thumb + Middle Pinch)
+            if thumb_middle_dist < 30 and thumb_index_dist >= 30:
+                pyautogui.rightClick()
 
     # Show the webcam feed
     cv2.imshow("Hand Tracking Mouse", img)
